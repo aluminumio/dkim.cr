@@ -84,6 +84,7 @@ Resources
 
 * [RFC 6376](http://tools.ietf.org/html/rfc6376)
 * Inspired by perl's [Mail-DKIM](http://dkimproxy.sourceforge.net/)
+* [DomainKeys Article by SparkPost](https://www.sparkpost.com/resources/email-explained/dkim-domainkeys-identified-mail/)
 
 License
 =======

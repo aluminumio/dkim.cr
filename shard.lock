@@ -1,0 +1,6 @@
+version: 2.0
+shards:
+  openssl_ext:
+    git: https://github.com/spider-gazelle/openssl_ext.git
+    version: 2.1.5+git.commit.a6d023921da7cdc15c04c4dc835f6c92ee15b0c3
+

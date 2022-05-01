@@ -9,7 +9,7 @@ module Dkim
       end
       def encode(data)
         # [data].pack("m0").gsub("\n", "")
-        ::Base64.encode(data)
+        ::Base64.encode(data).gsub("\n", "")
       end
     end
   end

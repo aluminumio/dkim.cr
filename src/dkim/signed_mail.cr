@@ -14,29 +14,6 @@ module Dkim
       @private_key = key
     end
 
-    @signable_headers : Array(String)
-    def signable_headers=(val); @signable_headers=val; end
-    def signable_headers; @signable_headers; end
-
-    @options : Hash(Symbol, String)
-
-    def domain=(val : String); @options[:domain]=val; end
-    def domain(); @options[:domain]; end
-    def time=(val : Int64); @options[:time]=val; end
-    def time(); @options[:time]?; end
-    def selector=(val : String); @options[:selector]=val; end
-    def selector(); @options[:selector]; end
-    def expire=(val : String); @options[:expire]=val; end
-    def expire(); @options[:expire]?; end
-    def identity=(val : String); @options[:identity]=val; end
-    def identity(); @options[:identity]?; end
-    def signing_algorithm=(val : String); @options[:signing_algorithm]=val; end
-    def signing_algorithm(); @options[:signing_algorithm]; end
-    def header_canonicalization=(val : String); @options[:header_canonicalization]=val; end
-    def header_canonicalization(); @options[:header_canonicalization]; end
-    def body_canonicalization=(val : String); @options[:body_canonicalization]=val; end
-    def body_canonicalization(); @options[:body_canonicalization]; end
-
     @original_message : String
     @headers : Array(Header)
 
@@ -44,23 +21,24 @@ module Dkim
     #
     # @param [String,#to_s] message mail message to be signed
     # @param [Hash] options hash of options for signing. Defaults are taken from {Dkim}. See {Options} for details.
-    def initialize(message)
-      @options = Hash(Symbol, String).new
+    def initialize(message,
+        @time : Time = Time.utc,
+        @domain : String = "example.com",
+        private_key : String | OpenSSL::PKey::RSA | Nil = nil,
+        @selector : String = "dkim",
+        @identity : String? = nil,
+        @expire : Time? = nil,
+        @signing_algorithm : String = "rsa-sha256",
+        @header_canonicalization : String = "relaxed", 
+        @body_canonicalization   : String = "relaxed",
+        @signable_headers : Array(String) = Dkim::DefaultHeaders)
 
       message = message.to_s.gsub(/\r?\n/, "\r\n")
       headers, body = message.split(/\r?\n\r?\n/, 2)
       @original_message = message
       @headers = Header.parse headers
       @body    = Body.new body
-
-      @signable_headers       = Dkim::DefaultHeaders.dup
-      domain                  = Dkim.domain
-      identity                = nil
-      selector                = Dkim.selector
-      signing_algorithm       = "rsa-sha256"
-      private_key             = Dkim.private_key
-      header_canonicalization = "relaxed"
-      body_canonicalization   = "relaxed"
+      self.private_key = private_key
     end
 
     def canonicalized_headers
@@ -72,7 +50,7 @@ module Dkim
       @headers.map do |h| 
         h.relaxed_key
       end.select do |key|
-        signable_headers.map do |hdr|
+        @signable_headers.map do |hdr|
           hdr.downcase
         end.includes?(key)
       end
@@ -80,12 +58,12 @@ module Dkim
 
     # @return [String] Signed headers of message in their canonical forms
     def canonical_header
-      canonicalized_headers.to_s(header_canonicalization)
+      canonicalized_headers.to_s(@header_canonicalization)
     end
 
     # @return [String] Body of message in its canonical form
     def canonical_body
-      @body.to_s(body_canonicalization)
+      @body.to_s(@body_canonicalization)
     end
 
     # @return [DkimHeader] Constructed signature for the mail message
@@ -93,26 +71,22 @@ module Dkim
       dkim_header = DkimHeader.new
 
       raise "A private key is required" unless private_key
-      raise "A domain is required"      unless domain
-      raise "A selector is required"    unless selector
+      raise "A domain is required"      unless @domain
+      raise "A selector is required"    unless @selector
 
       # Add basic DKIM info
       dkim_header["v"] = "1"
-      dkim_header["a"] = signing_algorithm
-      dkim_header["c"] = "#{header_canonicalization}/#{body_canonicalization}"
-      dkim_header["d"] = domain
-      # dkim_header["i"] = identity if identity
+      dkim_header["a"] = @signing_algorithm
+      dkim_header["c"] = "#{@header_canonicalization}/#{@body_canonicalization}"
+      dkim_header["d"] = @domain
+      dkim_header["i"] = @identity.as(String) unless @identity.nil?
       dkim_header["q"] = "dns/txt"
-      dkim_header["s"] = selector
-      dkim_header["t"] = (time || Time.local.to_utc).to_s
-      if expire
-        dkim_header["x"] = expire.to_s 
-      end
+      dkim_header["s"] = @selector
+      dkim_header["t"] = @time.to_unix.to_s
+      dkim_header["x"] = @expire.as(Time).to_unix.to_s unless @expire.nil?
 
       # Add body hash and blank signature
-      dig = digest_alg
-      dig << canonical_body
-      dkim_header["bh"]= dig.final.to_s
+      dkim_header["bh"]= String.new(digest_alg.update(canonical_body).final)
       # dkim_header["bh"]= digest_alg.digest(canonical_body)
       dkim_header["h"] = signed_headers.join(":")
       dkim_header["b"] = ""
@@ -121,8 +95,8 @@ module Dkim
       headers = canonical_header
       # puts "dkim_header.class: #{dkim_header.class}\n"
       # puts "header_canonicalization: #{header_canonicalization}\n"
-      headers += dkim_header.to_s(header_canonicalization)
-      dkim_header["b"] = private_key.as(OpenSSL::PKey::RSA).sign(digest_alg, headers).to_s
+      headers += dkim_header.to_s(@header_canonicalization)
+      dkim_header["b"] = String.new(private_key.as(OpenSSL::PKey::RSA).sign(digest_alg, headers))
 
       dkim_header
     end
@@ -134,7 +108,7 @@ module Dkim
 
     # private
     def digest_alg
-      case signing_algorithm
+      case @signing_algorithm
       when "rsa-sha1"
         OpenSSL::Digest.new("SHA1")
         # OpenSSL::Digest::SHA1.new
@@ -142,7 +116,7 @@ module Dkim
         OpenSSL::Digest.new("SHA256")
         # OpenSSL::Digest::SHA256.new
       else
-        raise "Unknown digest algorithm: '#{signing_algorithm}'"
+        raise "Unknown digest algorithm: '#{@signing_algorithm}'"
       end
     end
   end

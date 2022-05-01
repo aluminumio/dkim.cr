@@ -4,17 +4,8 @@ module Dkim
   class Header
     include Canonicalizable
 
-    @key : String = ""
-    def key=(val); @key=val; end
-    def key; @key; end
-
-    @value : String = ""
-    def value=(val); @value=val; end
-    def value; @value; end
-
-    def initialize(k : String = "", v : String = "")
-      key = k
-      value = v
+    property key,value
+    def initialize(@key : String, @value : String)
     end
 
     def relaxed_key

@@ -5,3 +5,9 @@ dependencies:
    openssl_ext:
       github: spider-gazelle/openssl_ext
       branch: master
+
+authors:
+  - usiegj00
+  - usiegl00
+
+license: MIT

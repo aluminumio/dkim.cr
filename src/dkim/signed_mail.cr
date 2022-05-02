@@ -16,6 +16,7 @@ module Dkim
 
     @original_message : String
     @headers : Array(Header)
+    property headers
 
     # A new instance of SignedMail
     #
@@ -38,7 +39,7 @@ module Dkim
       @original_message = message
       @headers = Header.parse headers
       @body    = Body.new body
-      self.private_key = private_key
+      self.private_key = private_key unless private_key.nil?
     end
 
     def canonicalized_headers

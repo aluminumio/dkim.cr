@@ -2,6 +2,7 @@ require "openssl"
 require "openssl_ext"
 
 require "./dkim/signed_mail"
+require "./dkim/verify_mail"
 
 module Dkim
   DefaultHeaders = %w{

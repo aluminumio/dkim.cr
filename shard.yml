@@ -2,9 +2,12 @@ name: dkim
 version: 0.1.0
 
 dependencies:
-   openssl_ext:
-      github: spider-gazelle/openssl_ext
-      branch: master
+  openssl_ext:
+    github: spider-gazelle/openssl_ext
+    branch: master
+  dns:
+    github: aluminumio/dns.cr
+    branch: master
 
 authors:
   - usiegj00

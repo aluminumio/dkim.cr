@@ -1,5 +1,9 @@
 version: 2.0
 shards:
+  dns:
+    git: https://github.com/aluminumio/dns.cr.git
+    version: 1.0.3+git.commit.fb3326d63710f57d765d6d41ecf341ec4c2421ca
+
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
     version: 2.1.5+git.commit.a6d023921da7cdc15c04c4dc835f6c92ee15b0c3

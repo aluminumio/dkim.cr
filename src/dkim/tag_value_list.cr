@@ -1,6 +1,7 @@
 module Dkim
   class TagValueList
     @values : Hash(String, String)
+    property keys
     @keys   : Array(String)
 
     def initialize(values : Hash(String, String) = Hash(String, String).new)

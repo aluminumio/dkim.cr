@@ -126,8 +126,14 @@ module Dkim
         return false
       end
       
+      puts headers
+      final_headers = headers.split("dkim-signature:").first + "dkim-signature:" + dkh.to_s.split("b=").first + "b="
+      puts final_headers
+      final_hash = digest_alg.update(final_headers).final
+      puts final_hash.hexstring
       unencoded_signature = Base64.decode(signature.gsub(/\r\n */, ""))
-      puts public_key.verify(digest_alg, unencoded_signature, headers+";")
+      puts unencoded_signature.hexstring
+      puts public_key.verify(digest_alg, unencoded_signature, final_headers)
     end
 
     # @return [DkimHeader] Constructed signature for the mail message

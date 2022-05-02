@@ -76,7 +76,7 @@ module Dkim
       end
       sender_domain = ((sender.any? && sender.first) || from.first).to_s.split("<").last.split(">").first.split("@").last
       dkh = self.dkim_headers.first
-      puts "DKIM Header:\n#{dkh.to_s}"
+      # puts "DKIM Header:\n#{dkh.to_s}"
 
       time_as_string =  dkh["t"]
       @query_method = dkh["q"]
@@ -98,7 +98,7 @@ module Dkim
         puts "Nonstandard DKIM keys: #{dkim.to_s}"
       end
       if dkim_domain != sender_domain
-        puts "DKIM Verification Warning: We are verifying the sending host as:\n\t#{dkim_domain}\nbut the mail appears to be from the host:\n\t#{sender_domain}\nIf you trust #{dkim_domain} then you may trust the email, but #{dkim_domain} is not necessarily proof #{sender_domain} authorized the email."
+        puts "DKIM Verification Warning: Sending host: '#{dkim_domain}' but the mail appears to be from the host '#{sender_domain}'. If you trust #{dkim_domain} then you may trust the email, but #{dkim_domain} is not necessarily proof #{sender_domain} authorized the email."
       end
       identity = dkh["i"]
       @identity = identity unless identity.nil?
@@ -126,14 +126,15 @@ module Dkim
         return false
       end
       
-      puts headers
+      # puts headers
+      # TODO: Stop using dkh and use our generated canonical headers instead.
       final_headers = headers.split("dkim-signature:").first + "dkim-signature:" + dkh.to_s.split("b=").first + "b="
-      puts final_headers
-      final_hash = digest_alg.update(final_headers).final
-      puts final_hash.hexstring
+      # puts final_headers
+      # final_hash = digest_alg.update(final_headers).final
+      # puts final_hash.hexstring
       unencoded_signature = Base64.decode(signature.gsub(/\r\n */, ""))
-      puts unencoded_signature.hexstring
-      puts public_key.verify(digest_alg, unencoded_signature, final_headers)
+      # puts unencoded_signature.hexstring
+      public_key.verify(digest_alg, unencoded_signature, final_headers)
     end
 
     # @return [DkimHeader] Constructed signature for the mail message

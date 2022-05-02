@@ -19,4 +19,8 @@ end
 
 dkim_mail = Dkim::VerifyMail.new(mail)
 
-dkim_mail.verify
+if dkim_mail.verify
+  puts "DKIM Verified"
+else
+  puts "WARNING: DKIM Not Verified"
+end

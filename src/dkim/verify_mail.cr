@@ -67,7 +67,6 @@ module Dkim
       dns_servers << DNS::Address::UDP.new ipAddress: Socket::IPAddress.new("4.2.2.2", 53_i32)
       dns_servers << DNS::Address::UDP.new ipAddress: Socket::IPAddress.new("1.1.1.1", 53_i32)
       dns_resolver = DNS::Resolver.new dnsServers: dns_servers, options: DNS::Options.new
-      # [This PR](https://github.com/636f7374/dns.cr/pull/2) allows LARGE DNS TXT records to be returned by DNS.cr, but until fixed need to stay on our fork.
 
       sender= @headers.select { |h| h.key == "Sender" }
       from  = @headers.select { |h| h.key == "From" }

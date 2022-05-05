@@ -6,7 +6,7 @@ dependencies:
     github: spider-gazelle/openssl_ext
     branch: master
   dns:
-    github: aluminumio/dns.cr
+    github: 636f7374/dns.cr
     branch: master
 
 authors:

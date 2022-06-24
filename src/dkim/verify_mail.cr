@@ -61,11 +61,11 @@ module Dkim
       return txt_record
     end
 
-    def verify #(dkim)
+    def verify(dns_server_ips : Array(String) = ["8.8.8.8", "4.2.2.2", "1.1.1.1"])
       dns_servers = Set(DNS::Address).new
-      dns_servers << DNS::Address::UDP.new ipAddress: Socket::IPAddress.new("8.8.8.8", 53_i32)
-      dns_servers << DNS::Address::UDP.new ipAddress: Socket::IPAddress.new("4.2.2.2", 53_i32)
-      dns_servers << DNS::Address::UDP.new ipAddress: Socket::IPAddress.new("1.1.1.1", 53_i32)
+      dns_server_ips.each do |dns_server_ip|
+        dns_servers << DNS::Address::UDP.new ipAddress: Socket::IPAddress.new(dns_server_ip, 53_i32)
+      end
       dns_resolver = DNS::Resolver.new dnsServers: dns_servers, options: DNS::Options.new
 
       sender= @headers.select { |h| h.key == "Sender" }

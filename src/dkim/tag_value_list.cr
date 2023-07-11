@@ -23,6 +23,7 @@ module Dkim
     def self.parse(string)
       list = new
       string.split(";").each do |keyval|
+        next unless keyval.includes?('=')
         key, value = keyval.split("=", 2)
         list[key.strip] = value.strip
       end

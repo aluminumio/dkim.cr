@@ -103,8 +103,8 @@ module Dkim
     end
 
     # @return [String] Message combined with calculated dkim header signature
-    def to_s
-      dkim_header.to_s + "\r\n" + @original_message
+    def signed_message
+      "#{dkim_header.to_s}\r\n#{@original_message}"
     end
 
     # private

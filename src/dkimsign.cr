@@ -19,6 +19,6 @@ dkim_mail =  Dkim::SignedMail.new(mail,
                                   private_key: key, 
                                   selector: selector)
 
-print dkim_mail.to_s
+print dkim_mail.signed_message
 
 

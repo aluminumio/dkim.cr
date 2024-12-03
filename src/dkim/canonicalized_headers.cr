@@ -20,7 +20,7 @@ module Dkim
     end
     def canonical(canonicalization)
       map do |header|
-        header.to_s(canonicalization) + "\r\n"
+        "#{header.canonical(canonicalization)}\r\n"
       end.join
     end
   end

@@ -173,7 +173,7 @@ module Dkim
 
     # @return [String] Message combined with calculated dkim header signature
     def signed_message
-      dkim_header.to_s + "\r\n" + @original_message
+      "#{dkim_header.canonical}\r\n#{@original_message}"
     end
 
     def canonicalized_headers
@@ -193,12 +193,12 @@ module Dkim
 
     # @return [String] Signed headers of message in their canonical forms
     def canonical_header
-      canonicalized_headers.to_s(@header_canonicalization)
+      canonicalized_headers.canonical(@header_canonicalization)
     end
 
     # @return [String] Body of message in its canonical form
     def canonical_body
-      @body.to_s(@body_canonicalization)
+      @body.canonical(@body_canonicalization)
     end
 
     # private

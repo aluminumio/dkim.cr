@@ -120,7 +120,7 @@ module Dkim
       public_key = OpenSSL::PKey::RSA.new(formatted_key)
 
       headers = canonical_header
-      headers += dkim_header.to_s(@header_canonicalization)
+      headers += dkim_header.canonical(@header_canonicalization)
 
       message_body_hash = Base64.encode(String.new(digest_alg.update(canonical_body).final)).chomp
       if message_body_hash != dkim_body_hash
@@ -166,13 +166,13 @@ module Dkim
 
       # Calculate signature based on intermediate signature header
       headers = canonical_header
-      headers += dkim_header.to_s(@header_canonicalization)
+      headers += dkim_header.canonical(@header_canonicalization)
 
       dkim_header
     end
 
     # @return [String] Message combined with calculated dkim header signature
-    def to_s
+    def signed_message
       dkim_header.to_s + "\r\n" + @original_message
     end
 

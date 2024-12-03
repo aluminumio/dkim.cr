@@ -8,7 +8,7 @@ module Dkim
       @keys = values.keys
       @values = values.dup
     end
-    def to_s
+    def list
       @keys.map do |k|
         "#{k}=#{@values[k]}"
       end.join("; ")

@@ -1,6 +1,6 @@
 module Dkim
   module Canonicalizable
-    def to_s(form="simple")
+    def canonical(form="simple")
       case form
       when "simple"
         canonical_simple

@@ -11,7 +11,7 @@ module Dkim
       @value = ""
     end
     def value
-      " " + @list.to_s
+      " #{@list.list}"
     end
     def [](k : String)
       encoder_for(k).decode(@list[k])

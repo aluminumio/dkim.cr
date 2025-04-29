@@ -74,7 +74,7 @@ module Dkim
         puts "Message does not have a Sender nor From so DKIM source cannot be verified."
       end
       sender_domain = ((sender.any? && sender.first) || from.first).to_s.split("<").last.split(">").first.split("@").last
-      dkh = self.dkim_headers.first
+      dkh = self.dkim_headers.first?
       # puts "DKIM Header:\n#{dkh.to_s}"
       if dkh.nil?
         puts "No DKIM header found."

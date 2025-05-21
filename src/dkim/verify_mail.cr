@@ -54,11 +54,17 @@ module Dkim
       #delta = after-before
       #puts "Timing: #{delta}"
 
-      first_answers = packets[1][0].answers
-      ares = first_answers.select {|c| c.class == DNS::Records::TXT }[0]
-      return nil unless ares # Can have none...
-      txt_record = ares.as(DNS::Records::TXT)
-      return txt_record
+      if packets.empty?
+        puts "No DNS response for #{record}"
+        return nil
+      else
+        first_answers = packets[1]?[0]?&.answers?
+        return nil unless first_answers
+        ares = first_answers.select {|c| c.class == DNS::Records::TXT }[0]
+        return nil unless ares # Can have none...
+        txt_record = ares.as(DNS::Records::TXT)
+        return txt_record
+      end
     end
 
     def verify(dns_server_ips : Array(String) = ["8.8.8.8", "4.2.2.2", "1.1.1.1"])

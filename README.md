@@ -70,19 +70,39 @@ If you wish to override this behaviour and use whichever algorithm is available 
 
     Dkim::signing_algorithm = defined?(OpenSSL::Digest::SHA256) ? 'rsa-sha256' : 'rsa-sha1'
 
+Verification
+============
+
+Verify a DKIM-signed message:
+
+    mail = Dkim::VerifyMail.new(raw_message)
+    if mail.verify
+      puts "DKIM verified"
+    end
+
+Supports relaxed and simple canonicalization, RSA-SHA256 and RSA-SHA1, header
+over-signing (duplicate `h=` entries and non-existent headers per RFC 6376
+§3.5 / §5.4.2), and folded tag values with continuation lines.
+
 Limitations
 ===========
 
-* Strictly a DKIM signing library. No support for signature verification. *(none planned)*
-* No support for the older Yahoo! DomainKeys standard ([RFC 4870](http://tools.ietf.org/html/rfc4870)) *(none planned)*
-* No support for specifying DKIM identity `i=` *(planned)*
-* No support for body length `l=` *(planned)*
-* No support for copied header fields `z=` *(not immediately planned)*
+* No support for the older Yahoo! DomainKeys standard ([RFC 4870](http://tools.ietf.org/html/rfc4870))
+* No support for body length `l=` tag *(planned)*
+* No support for copied header fields `z=`
+
+Related RFCs
+============
+
+* [RFC 6376](https://www.rfc-editor.org/rfc/rfc6376) — DomainKeys Identified Mail (DKIM) Signatures
+* [RFC 6377](https://www.rfc-editor.org/rfc/rfc6377) — DKIM and Mailing Lists
+* [RFC 8301](https://www.rfc-editor.org/rfc/rfc8301) — Cryptographic Algorithm and Key Usage Update to DKIM (deprecates rsa-sha1)
+* [RFC 8463](https://www.rfc-editor.org/rfc/rfc8463) — Ed25519 for DKIM
+* [RFC 8617](https://www.rfc-editor.org/rfc/rfc8617) — Authenticated Received Chain (ARC)
 
 Resources
 =========
 
-* [RFC 6376](http://tools.ietf.org/html/rfc6376)
 * Inspired by perl's [Mail-DKIM](http://dkimproxy.sourceforge.net/)
 * [DomainKeys Article by SparkPost](https://www.sparkpost.com/resources/email-explained/dkim-domainkeys-identified-mail/)
 

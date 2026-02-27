@@ -8,7 +8,7 @@ module Dkim
     def initialize(@key : String, @value : String)
     end
     def to_s(io : IO)
-      io << @key << ":" << @value
+      io << key << ":" << value
     end
 
     def relaxed_key

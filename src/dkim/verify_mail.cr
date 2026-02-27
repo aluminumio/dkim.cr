@@ -58,7 +58,7 @@ module Dkim
         puts "No DNS response for #{record}"
         return nil
       else
-        first_answers = packets[1]?[0]?&.answers?
+        first_answers = packets[1]?.try(&.[0]?).try(&.answers)
         return nil unless first_answers
         ares = first_answers.select {|c| c.class == DNS::Records::TXT }[0]
         return nil unless ares # Can have none...

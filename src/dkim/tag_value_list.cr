@@ -13,6 +13,9 @@ module Dkim
         "#{k}=#{@values[k]}"
       end.join("; ")
     end
+    def to_s(io : IO)
+      io << list
+    end
     def [](k)
       @values[k]?
     end

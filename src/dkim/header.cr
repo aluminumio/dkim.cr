@@ -7,6 +7,9 @@ module Dkim
     property key,value
     def initialize(@key : String, @value : String)
     end
+    def to_s(io : IO)
+      io << @key << ":" << @value
+    end
 
     def relaxed_key
       key = self.key.dup

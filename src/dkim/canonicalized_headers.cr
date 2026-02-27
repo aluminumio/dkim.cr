@@ -13,8 +13,10 @@ module Dkim
       end
 
       @signed_headers.each do |key|
-        if header = header_hash[key].pop
-          yield header
+        if arr = header_hash[key]?
+          if header = arr.pop?
+            yield header
+          end
         end
       end
     end

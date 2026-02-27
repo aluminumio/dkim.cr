@@ -118,9 +118,9 @@ module Dkim
       end
 
       dkim_body_hash = dkh["bh"].as(String)
-      signature      = dkh["b"].as(String).gsub(/\r\n */, "")
+      signature      = dkh["b"].as(String).gsub(/\s+/, "")
 
-      @signable_headers = dkh["h"].as(String).split(":")
+      @signable_headers = dkh["h"].as(String).split(":").map(&.strip)
 
       formatted_key = "-----BEGIN PUBLIC KEY-----\r\n#{dkim_public_key}\r\n-----END PUBLIC KEY-----"
       public_key = OpenSSL::PKey::RSA.new(formatted_key)
@@ -143,7 +143,7 @@ module Dkim
       # puts final_headers
       # final_hash = digest_alg.update(final_headers).final
       # puts final_hash.hexstring
-      unencoded_signature = Base64.decode(signature.gsub(/\r\n */, ""))
+      unencoded_signature = Base64.decode(signature)
       # puts unencoded_signature.hexstring
       public_key.verify(digest_alg, unencoded_signature, final_headers)
     end
@@ -185,7 +185,7 @@ module Dkim
     end
 
     def canonicalized_headers
-      CanonicalizedHeaders.new(@headers, signed_headers)
+      CanonicalizedHeaders.new(@headers, @signable_headers)
     end
 
     # @return [Array<String>] lowercased names of headers in the order they are signed

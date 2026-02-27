@@ -135,9 +135,11 @@ module Dkim
         return false
       end
       
-      # puts headers
-      # TODO: Stop using dkh and use our generated canonical headers instead.
-      final_headers = headers.split("dkim-signature:").first + "dkim-signature:" + dkh.to_s.split("b=").first + "b="
+      # Use the original DKIM-Signature header in canonical form with b= emptied,
+      # rather than re-serializing from parsed tags (which loses canonicalization).
+      raw_dkim = @headers.find! { |h| h.key == "DKIM-Signature" }
+      canonical_dkim = raw_dkim.canonical(@header_canonicalization)
+      final_headers = headers.split("dkim-signature:").first + canonical_dkim.sub(/\bb=[^;]*\z/, "b=")
       # puts final_headers
       # final_hash = digest_alg.update(final_headers).final
       # puts final_hash.hexstring

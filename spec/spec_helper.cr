@@ -16,6 +16,8 @@ EOF
 DOMAIN = "example.com"
 SELECTOR = "brisbane"
 TIME = 1234567890
+PUBLIC_KEY_B64 = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDwIRP/UC3SBsEmGqZ9ZJW3/DkMoGeLnQg1fWn7/zYtIxN2SnFCjxOCKG9v3b4jYfcTNh5ijSsq631uBItLa7od+v/RtdC2UzJ1lWT947qR+Rcac2gbto/NMqJ0fzfVjH4OuKhitdY9tf6mcwGjaNBcWToIMmPSPDdQPNUYckcQ2QIDAQAB"
+
 KEY = %{
 -----BEGIN RSA PRIVATE KEY-----
 MIICXwIBAAKBgQDwIRP/UC3SBsEmGqZ9ZJW3/DkMoGeLnQg1fWn7/zYtIxN2SnFC
@@ -33,3 +35,20 @@ eAYXunajbBSOLlx4D+TunwJBANkPI5S9iylsbLs6NkaMHV6k5ioHBBmgCak95JGX
 GMot/L2x0IYyMLAz6oLWh2hm7zwtb0CgOrPo1ke44hFYnfc=
 -----END RSA PRIVATE KEY-----
 }
+
+def sign_for_test(message = MAIL,
+                   header_canonicalization = "relaxed",
+                   body_canonicalization = "relaxed",
+                   expire : Time? = nil,
+                   body_length : Int32? = nil) : {String, String}
+  signed_mail = Dkim::SignedMail.new(message,
+    time: Time.unix(TIME),
+    domain: DOMAIN,
+    private_key: KEY,
+    selector: SELECTOR,
+    header_canonicalization: header_canonicalization,
+    body_canonicalization: body_canonicalization,
+    expire: expire,
+    body_length: body_length)
+  {signed_mail.signed_message, PUBLIC_KEY_B64}
+end

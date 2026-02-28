@@ -13,14 +13,31 @@ if mail
   mail = mail.gsub(/\r?\n/, "\r\n")
 end
 
-#	pubkey = key.public_key
-#	if pubkey.verify(OpenSSL::Digest::SHA256.new, signature, data)
-
-
 dkim_mail = Dkim::VerifyMail.new(mail)
 
-if dkim_mail.verify
+result = dkim_mail.verify
+case result
+when Dkim::VerifyStatus::Pass
   puts "DKIM Verified"
+when Dkim::VerifyStatus::NoSignature
+  puts "WARNING: No DKIM signature found"
+  exit 1
+when Dkim::VerifyStatus::BodyHashFail
+  puts "WARNING: DKIM body hash mismatch"
+  exit 1
+when Dkim::VerifyStatus::KeyRevoked
+  puts "WARNING: DKIM key has been revoked"
+  exit 1
+when Dkim::VerifyStatus::Expired
+  puts "WARNING: DKIM signature has expired"
+  exit 1
+when Dkim::VerifyStatus::NoKey
+  puts "WARNING: No DKIM public key found"
+  exit 1
+when Dkim::VerifyStatus::InvalidSig
+  puts "WARNING: Invalid DKIM signature"
+  exit 1
 else
-  puts "WARNING: DKIM Not Verified"
+  puts "WARNING: DKIM verification failed"
+  exit 1
 end

@@ -2,9 +2,9 @@ version: 2.0
 shards:
   dns:
     git: https://github.com/636f7374/dns.cr.git
-    version: 1.0.3+git.commit.0e4e3d3b50e879e4dc45eac85c45deae77f05819
+    version: 1.0.5+git.commit.87a75b08b98a8057a74cc1e0ecf61d853878301d
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.1.5+git.commit.a6d023921da7cdc15c04c4dc835f6c92ee15b0c3
+    version: 2.8.4+git.commit.fa66a5e79f3d4ec94dea6e2b783fdf837d8f91e2
 

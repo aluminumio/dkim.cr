@@ -8,24 +8,25 @@ require "./canonicalized_headers"
 require "dns"
 
 module Dkim
+  enum VerifyStatus
+    Pass
+    Fail
+    BodyHashFail
+    KeyRevoked
+    Expired
+    NoSignature
+    NoKey
+    InvalidSig
+  end
+
   class VerifyMail
     @original_message : String
     @headers : Array(Header)
     @header_canonicalization : String
     @body_canonicalization : String
-    @domain : String
-    @selector : String
-    @identity : String?
-    @query_method : String?
-    @time   : Time?
-    @expire : Time?
     @signing_algorithm : String
     property headers
 
-    # A new instance of VerifyMail
-    #
-    # @param [String,#to_s] message mail message to be signed
-    # @param [Hash] options hash of options for signing. Defaults are taken from {Dkim}. See {Options} for details.
     def initialize(message)
       message = message.to_s.gsub(/\r?\n/, "\r\n")
       headers, body = message.split(/\r?\n\r?\n/, 2)
@@ -34,163 +35,133 @@ module Dkim
       @body    = Body.new body
       @signable_headers = [] of String
       @header_canonicalization = @body_canonicalization = ""
-      @signing_algorithm = @domain = @selector = ""
+      @signing_algorithm = ""
     end
 
     def dkim_headers
       @headers.select do |h|
-        h.key == "DKIM-Signature" 
+        h.key == "DKIM-Signature"
       end.map do |dh|
         TagValueList.parse(dh.value)
       end
     end
 
     def query_google_for_txt_record(dns_resolver, record)
-      # puts "Resolving TXT for: #{record}"
-      #before = Time.local
       ask_packet = DNS::Packet.create_getaddrinfo_ask protocol_type: DNS::ProtocolType::UDP, name: record, record_type: DNS::Packet::RecordFlag::TXT, class_type: DNS::Packet::ClassFlag::Internet
       packets = dns_resolver.resolve host: record, record_type: DNS::Packet::RecordFlag::TXT, ask_packet: ask_packet
-      #after = Time.local
-      #delta = after-before
-      #puts "Timing: #{delta}"
 
       if packets.empty?
-        puts "No DNS response for #{record}"
         return nil
       else
         first_answers = packets[1]?.try(&.[0]?).try(&.answers)
         return nil unless first_answers
-        ares = first_answers.select {|c| c.class == DNS::Records::TXT }[0]
-        return nil unless ares # Can have none...
+        ares = first_answers.select {|c| c.class == DNS::Records::TXT }[0]?
+        return nil unless ares
         txt_record = ares.as(DNS::Records::TXT)
         return txt_record
       end
     end
 
-    def verify(dns_server_ips : Array(String) = ["8.8.8.8", "4.2.2.2", "1.1.1.1"])
-      dns_servers = Set(DNS::Address).new
-      dns_server_ips.each do |dns_server_ip|
-        dns_servers << DNS::Address::UDP.new ipAddress: Socket::IPAddress.new(dns_server_ip, 53_i32)
-      end
-      dns_resolver = DNS::Resolver.new dnsServers: dns_servers, options: DNS::Options.new
+    def verify(dns_server_ips : Array(String) = ["8.8.8.8", "4.2.2.2", "1.1.1.1"], public_key : String? = nil) : VerifyStatus
+      results = verify_all(dns_server_ips, public_key)
+      results.includes?(VerifyStatus::Pass) ? VerifyStatus::Pass : results.last
+    end
 
-      sender= @headers.select { |h| h.key == "Sender" }
-      from  = @headers.select { |h| h.key == "From" }
-      if !sender.any? && !from.any?
-        puts "Message does not have a Sender nor From so DKIM source cannot be verified."
-      end
-      sender_domain = ((sender.any? && sender.first) || from.first).to_s.split("<").last.split(">").first.split("@").last
-      dkh = self.dkim_headers.first?
-      # puts "DKIM Header:\n#{dkh.to_s}"
-      if dkh.nil?
-        puts "No DKIM header found."
-        return false
+    def verify_all(dns_server_ips : Array(String) = ["8.8.8.8", "4.2.2.2", "1.1.1.1"], public_key : String? = nil) : Array(VerifyStatus)
+      dns_resolver = nil
+      unless public_key
+        dns_servers = Set(DNS::Address).new
+        dns_server_ips.each do |dns_server_ip|
+          dns_servers << DNS::Address::UDP.new ipAddress: Socket::IPAddress.new(dns_server_ip, 53_i32)
+        end
+        dns_resolver = DNS::Resolver.new dnsServers: dns_servers, options: DNS::Options.new
       end
 
-      time_as_string =  dkh["t"]
-      @query_method = dkh["q"]
-      @time     = Time.unix(time_as_string.to_i) unless time_as_string.nil?
-      dkim_domain   = dkh["d"]
-      @domain = dkim_domain unless dkim_domain.nil?
-      selector = dkh["s"]
-      @selector = selector unless selector.nil?
-      dkim_host = "#{@selector}._domainkey.#{dkim_domain}"
-      dkim_record = query_google_for_txt_record(dns_resolver, dkim_host)
-      if dkim_record.nil?
-        puts "No valid DKIM Record found for #{dkim_host}."
-        return false
+      raw_dkim_headers = @headers.select { |h| h.key == "DKIM-Signature" }
+      parsed_dkim_headers = raw_dkim_headers.map { |dh| TagValueList.parse(dh.value) }
+
+      return [VerifyStatus::NoSignature] if parsed_dkim_headers.empty?
+
+      results = [] of VerifyStatus
+      parsed_dkim_headers.each_with_index do |dkh, i|
+        results << verify_one(dkh, raw_dkim_headers[i], public_key, dns_resolver)
       end
-      dkim_record_txt = dkim_record.txt
-      dkim = TagValueList.parse(dkim_record_txt)
-      dkim_public_key = dkim["p"]
-      if dkim["v"] != "DKIM1" || dkim["k"] != "rsa"
-        puts "Nonstandard DKIM keys: #{dkim.to_s}"
+      results
+    end
+
+    private def verify_one(dkh : TagValueList, raw_dkim : Header, public_key_b64 : String?, dns_resolver : DNS::Resolver?) : VerifyStatus
+      # v= validation (RFC 6376 §3.5)
+      return VerifyStatus::InvalidSig unless dkh["v"] == "1"
+
+      # x= expiration check
+      if expire_str = dkh["x"]
+        return VerifyStatus::Expired if Time.unix(expire_str.to_i) < Time.utc
       end
-      if dkim_domain != sender_domain
-        puts "DKIM Verification Warning: Sending host: '#{dkim_domain}' but the mail appears to be from the host '#{sender_domain}'. If you trust #{dkim_domain} then you may trust the email, but #{dkim_domain} is not necessarily proof #{sender_domain} authorized the email."
+
+      # Resolve public key
+      key_b64 = public_key_b64
+      unless key_b64
+        dkim_domain = dkh["d"]
+        selector = dkh["s"]
+        return VerifyStatus::InvalidSig if dkim_domain.nil? || selector.nil?
+        dkim_host = "#{selector}._domainkey.#{dkim_domain}"
+        dkim_record = query_google_for_txt_record(dns_resolver.not_nil!, dkim_host)
+        return VerifyStatus::NoKey if dkim_record.nil?
+        dkim = TagValueList.parse(dkim_record.txt)
+        key_b64 = dkim["p"]
       end
-      identity = dkh["i"]
-      @identity = identity unless identity.nil?
-      expire   = dkh["x"]
+
+      return VerifyStatus::NoKey if key_b64.nil?
+      return VerifyStatus::KeyRevoked if key_b64.empty?
+
+      # Canonicalization defaults (RFC 6376 §3.5)
       @signing_algorithm = dkh["a"].as(String)
-      if dkh["c"]
-        @header_canonicalization, @body_canonicalization = dkh["c"].as(String).split("/")
+      c_tag = dkh["c"]
+      if c_tag
+        parts = c_tag.split("/")
+        @header_canonicalization = parts[0]
+        @body_canonicalization = parts[1]? || "simple"
+      else
+        @header_canonicalization = "simple"
+        @body_canonicalization = "simple"
       end
-
-      dkim_body_hash = dkh["bh"].as(String)
-      signature      = dkh["b"].as(String).gsub(/\s+/, "")
 
       @signable_headers = dkh["h"].as(String).split(":").map(&.strip)
 
-      formatted_key = "-----BEGIN PUBLIC KEY-----\r\n#{dkim_public_key}\r\n-----END PUBLIC KEY-----"
-      public_key = OpenSSL::PKey::RSA.new(formatted_key)
-
-      headers = canonical_header
-      headers += dkim_header.canonical(@header_canonicalization)
-
-      message_body_hash = Base64.encode(String.new(digest_alg.update(canonical_body).final)).chomp
-      if message_body_hash != dkim_body_hash
-        puts "WARNING!!! Message body does not match DKIM verification."
-        # TODO: Support [the 'l' tag](https://www.rfc-editor.org/rfc/rfc6376#section-3.7), but would help to have a message / test beforehand
-        return false
+      # Body hash with l= support
+      body = canonical_body
+      if l_tag = dkh["l"]
+        body = body.byte_slice(0, l_tag.to_i)
       end
-      
-      # Use the original DKIM-Signature header in canonical form with b= emptied,
-      # rather than re-serializing from parsed tags (which loses canonicalization).
-      raw_dkim = @headers.find! { |h| h.key == "DKIM-Signature" }
-      canonical_dkim = raw_dkim.canonical(@header_canonicalization)
-      final_headers = headers.split("dkim-signature:").first + canonical_dkim.sub(/\bb=[^;]*\z/, "b=")
-      # puts final_headers
-      # final_hash = digest_alg.update(final_headers).final
-      # puts final_hash.hexstring
-      unencoded_signature = Base64.decode(signature)
-      # puts unencoded_signature.hexstring
-      public_key.verify(digest_alg, unencoded_signature, final_headers)
-    end
 
-    # @return [DkimHeader] Constructed signature for the mail message
-    def dkim_header : DkimHeader
-      dkim_header = DkimHeader.new
+      dkim_body_hash = dkh["bh"].as(String)
+      signature = dkh["b"].as(String).gsub(/\s+/, "")
 
-      raise "A domain is required"      unless @domain
-      raise "A selector is required"    unless @selector
+      message_body_hash = Base64.encode(String.new(digest_alg.update(body).final)).chomp
+      return VerifyStatus::BodyHashFail if message_body_hash != dkim_body_hash
 
-      # Add basic DKIM info
-      dkim_header["v"] = "1"
-      dkim_header["a"] = @signing_algorithm
-      dkim_header["c"] = "#{@header_canonicalization}/#{@body_canonicalization}"
-      dkim_header["d"] = @domain
-      dkim_header["i"] = @identity || @domain
-      dkim_header["q"] = @query_method.as(String)        unless @query_method.nil?
-      dkim_header["s"] = @selector
-      dkim_header["t"] = @time.as(Time).to_unix.to_s unless @time.nil?
-      dkim_header["x"] = @expire.as(Time).to_unix.to_s unless @expire.nil?
-
-      # Add body hash and blank signature
-      dkim_header["bh"]= String.new(digest_alg.update(canonical_body).final)
-      # dkim_header["bh"]= digest_alg.digest(canonical_body)
-      dkim_header["h"] = signed_headers.join(":")
-      dkim_header["b"] = ""
-
-      # Calculate signature based on intermediate signature header
+      # Verify signature
       headers = canonical_header
-      headers += dkim_header.canonical(@header_canonicalization)
+      canonical_dkim = raw_dkim.canonical(@header_canonicalization)
+      final_headers = headers + canonical_dkim.sub(/\bb=[^;]*\z/, "b=")
 
-      dkim_header
-    end
+      formatted_key = "-----BEGIN PUBLIC KEY-----\r\n#{key_b64}\r\n-----END PUBLIC KEY-----"
+      rsa_key = OpenSSL::PKey::RSA.new(formatted_key)
+      unencoded_signature = Base64.decode(signature)
 
-    # @return [String] Message combined with calculated dkim header signature
-    def signed_message
-      "#{dkim_header.canonical}\r\n#{@original_message}"
+      if rsa_key.verify(digest_alg, unencoded_signature, final_headers)
+        VerifyStatus::Pass
+      else
+        VerifyStatus::Fail
+      end
     end
 
     def canonicalized_headers
       CanonicalizedHeaders.new(@headers, @signable_headers)
     end
 
-    # @return [Array<String>] lowercased names of headers in the order they are signed
     def signed_headers
-      @headers.map do |h| 
+      @headers.map do |h|
         h.relaxed_key
       end.select do |key|
         @signable_headers.map do |hdr|
@@ -199,30 +170,23 @@ module Dkim
       end
     end
 
-    # @return [String] Signed headers of message in their canonical forms
     def canonical_header
       canonicalized_headers.canonical(@header_canonicalization)
     end
 
-    # @return [String] Body of message in its canonical form
     def canonical_body
       @body.canonical(@body_canonicalization)
     end
 
-    # private
     def digest_alg
       case @signing_algorithm
       when "rsa-sha1"
         OpenSSL::Digest.new("SHA1")
-        # OpenSSL::Digest::SHA1.new
       when "rsa-sha256"
         OpenSSL::Digest.new("SHA256")
-        # OpenSSL::Digest::SHA256.new
       else
         raise "Unknown digest algorithm: '#{@signing_algorithm}'"
       end
     end
   end
 end
-
-

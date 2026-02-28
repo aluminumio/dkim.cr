@@ -76,19 +76,31 @@ Verification
 Verify a DKIM-signed message:
 
     mail = Dkim::VerifyMail.new(raw_message)
-    if mail.verify
+    result = mail.verify
+    if result == Dkim::VerifyStatus::Pass
       puts "DKIM verified"
     end
 
+`verify` returns a `Dkim::VerifyStatus` enum: `Pass`, `Fail`, `BodyHashFail`,
+`KeyRevoked`, `Expired`, `NoSignature`, `NoKey`, or `InvalidSig`.
+
+When a message has multiple DKIM-Signature headers, `verify` returns `Pass` if
+any signature passes. Use `verify_all` to get an `Array(VerifyStatus)` with
+results for each signature.
+
+To bypass DNS and supply a public key directly (useful for testing):
+
+    mail.verify(public_key: base64_encoded_public_key)
+
 Supports relaxed and simple canonicalization, RSA-SHA256 and RSA-SHA1, header
 over-signing (duplicate `h=` entries and non-existent headers per RFC 6376
-§3.5 / §5.4.2), and folded tag values with continuation lines.
+§3.5 / §5.4.2), folded tag values with continuation lines, body length `l=`
+tag, `x=` signature expiration, and `p=` key revocation detection.
 
 Limitations
 ===========
 
 * No support for the older Yahoo! DomainKeys standard ([RFC 4870](http://tools.ietf.org/html/rfc4870))
-* No support for body length `l=` tag *(planned)*
 * No support for copied header fields `z=`
 
 Related RFCs

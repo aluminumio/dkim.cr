@@ -32,7 +32,8 @@ module Dkim
         @signing_algorithm : String = "rsa-sha256",
         @header_canonicalization : String = "relaxed", 
         @body_canonicalization   : String = "relaxed",
-        @signable_headers : Array(String) = Dkim::DefaultHeaders)
+        @signable_headers : Array(String) = Dkim::DefaultHeaders,
+        @body_length : Int32? = nil)
 
       message = message.to_s.gsub(/\r?\n/, "\r\n")
       headers, body = message.split(/\r?\n\r?\n/, 2)
@@ -86,9 +87,13 @@ module Dkim
       dkim_header["t"] = @time.to_unix.to_s
       dkim_header["x"] = @expire.as(Time).to_unix.to_s unless @expire.nil?
 
-      # Add body hash and blank signature
-      dkim_header["bh"]= String.new(digest_alg.update(canonical_body).final)
-      # dkim_header["bh"]= digest_alg.digest(canonical_body)
+      # Add body hash (truncate if body_length set)
+      body = canonical_body
+      if bl = @body_length
+        body = body.byte_slice(0, bl)
+        dkim_header["l"] = bl.to_s
+      end
+      dkim_header["bh"]= String.new(digest_alg.update(body).final)
       dkim_header["h"] = signed_headers.join(":")
       dkim_header["b"] = ""
 

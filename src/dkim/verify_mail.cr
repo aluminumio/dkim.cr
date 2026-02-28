@@ -47,7 +47,7 @@ module Dkim
     end
 
     def query_google_for_txt_record(dns_resolver, record)
-      ask_packet = DNS::Packet.create_getaddrinfo_ask protocol_type: DNS::ProtocolType::UDP, name: record, record_type: DNS::Packet::RecordFlag::TXT, class_type: DNS::Packet::ClassFlag::Internet
+      ask_packet = DNS::Packet.create_query_packet protocol_type: DNS::ProtocolType::UDP, name: record, record_type: DNS::Packet::RecordFlag::TXT, class_type: DNS::Packet::ClassFlag::Internet
       packets = dns_resolver.resolve host: record, record_type: DNS::Packet::RecordFlag::TXT, ask_packet: ask_packet
 
       if packets.empty?

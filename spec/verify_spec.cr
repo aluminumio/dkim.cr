@@ -50,6 +50,15 @@ describe Dkim::VerifyMail do
       signed, key = sign_for_test(message: empty_body_mail)
       Dkim::VerifyMail.new(signed).verify(public_key: key).should eq Dkim::VerifyStatus::Pass
     end
+
+    # A headers-only message with no blank line separating headers from body
+    # must sign (with an empty body) rather than raise IndexError.
+    it "signs a message with no header/body separator and verifies" do
+      no_separator_mail = "From: test@example.com\r\nTo: other@example.com\r\nSubject: no sep\r\n"
+      signed, key = sign_for_test(message: no_separator_mail)
+      signed.should contain("DKIM-Signature:")
+      Dkim::VerifyMail.new(signed).verify(public_key: key).should eq Dkim::VerifyStatus::Pass
+    end
   end
 
   describe "l= body length tag" do

@@ -29,7 +29,11 @@ module Dkim
 
     def initialize(message)
       message = message.to_s.gsub(/\r?\n/, "\r\n")
-      headers, body = message.split(/\r?\n\r?\n/, 2)
+      # Be lenient: a message with no blank line separating headers from body
+      # (headers only) verifies against an empty body instead of raising.
+      parts = message.split(/\r?\n\r?\n/, 2)
+      headers = parts[0]
+      body = parts[1]? || ""
       @original_message = message
       @headers = Header.parse headers
       @body    = Body.new body

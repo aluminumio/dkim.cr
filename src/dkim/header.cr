@@ -47,9 +47,12 @@ module Dkim
     end
 
     def self.parse(header_string)
-      header_string.split(/\r?\n(?!([ \t]))/).map do |header|
+      # Be lenient: drop blank segments (e.g. a trailing CRLF on a
+      # headers-only message) and treat a line with no colon as a header
+      # with an empty value rather than raising IndexError.
+      header_string.split(/\r?\n(?!([ \t]))/).reject(&.empty?).map do |header|
         key, value = header.split(":", 2)
-        new(key, value)
+        new(key, value || "")
       end
     end
   end

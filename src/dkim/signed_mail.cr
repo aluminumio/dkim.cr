@@ -36,7 +36,13 @@ module Dkim
         @body_length : Int32? = nil)
 
       message = message.to_s.gsub(/\r?\n/, "\r\n")
-      headers, body = message.split(/\r?\n\r?\n/, 2)
+      # A well-formed message separates headers from body with a blank line.
+      # Be lenient: a message with no separator (headers only, no body) is
+      # signed with an empty body rather than raising IndexError on the
+      # missing second part.
+      parts = message.split(/\r?\n\r?\n/, 2)
+      headers = parts[0]
+      body = parts[1]? || ""
       @original_message = message
       @headers = Header.parse headers
       @body    = Body.new body
